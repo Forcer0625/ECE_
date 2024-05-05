@@ -61,20 +61,35 @@ class EGreedyRunner(BaseRunner):
         return total_reward, step
 
 class ECERunner(EGreedyRunner):
-    def __init__(self, env, policy, target_policy, mixer, target_mixer, replay_buffer, eps_start, eps_end, eps_dec):
+    def __init__(self, env, policy, target_policy, mixer, target_mixer, replay_buffer, eps_start, eps_end, eps_dec, ga_config):
         super().__init__(env, policy, replay_buffer, eps_start, eps_end, eps_dec)
         self.target_policy = target_policy
         self.mixer = mixer
         self.target_mixer = target_mixer
-        self.ga = SGA()
+        self.ga = SGA(ga_config)
 
-    def run(self):
-        population = []
-        for _ in range(self.ga.population_size):
-            population.append(deepcopy(self.env))
+    def run(self, step):
+        state, obs, _ = self.env.reset()
+        truncation = termination = False
+        total_reward = 0
+        while (not truncation) and (not termination):
+            if False:#random.random() < self.epsilon:
+                actions, reward, termination, truncation, state_, obs_ = self.ga.run(self.env)
+            else:
+                feature = torch.as_tensor(obs, dtype=torch.float, device=self.device)
+                action_values = self.policy(feature)
+                actions = torch.argmax(action_values, dim=1)
+                actions = actions.cpu().numpy()
+
+                state_, obs_, reward, termination, truncation, _ = self.env.step(actions)
+
+            self.store(state, obs, actions, reward, termination, state_, obs_)
+
+            total_reward += reward
+            state = state_
+            obs = obs_
+
+            step += 1
+            self.update_epsilon(step)
             
-        result = self.ga.run()
-        
-        for i in result:
-            self.store(i['state'], i['observation'], i['action'],\
-                       i['reward'], i['done'], i['next_state'], i['next_observation'])
+        return total_reward, step

@@ -1,6 +1,6 @@
 from pettingzoo.mpe import simple_spread_v3, simple_reference_v3, simple_world_comm_v3
 from utilis import MultiFrameStack
-
+from copy import deepcopy
 
 class BaseMPE():
     def __init__(self, render_mode=None):
@@ -20,6 +20,20 @@ class BaseMPE():
         truncations = truncations['agent_0']
         reward = reward['agent_0']
         return self.global_state(), self.frame_buffer.get(), reward, terminations, truncations, infos
+    
+    def simulate(self, actions):
+        dict_actions = {}
+        a = 0
+        for agent in self.env.agents:
+            dict_actions[agent] = actions[a]
+            a+=1
+        mirror = deepcopy(self.env)
+        single_frame_observatons, reward, terminations, truncations, infos = mirror.step(dict_actions)
+        global_state , observations = self.frame_buffer.next_frame(single_frame_observatons)
+        terminations = terminations['agent_0']
+        truncations = truncations['agent_0']
+        reward = reward['agent_0']
+        return global_state, observations, reward, terminations, truncations, infos
 
     def reset(self):
         self.frame_buffer.clear()

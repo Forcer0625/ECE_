@@ -26,7 +26,7 @@ class FrameStack():
         '''Return stacked frames the next frame'''
         temp = deepcopy(self.frame_buffer)
         temp.append(image)
-        return np.stack(temp, axis=0)
+        return np.stack(temp, axis=0).reshape(-1)
 
 class MultiFrameStack():
     def __init__(self, agents, n_stacks:int=4):
@@ -55,6 +55,14 @@ class MultiFrameStack():
     def clear(self):
         for agent in self.agents:
             self.frame_buffers[agent].clear()
+    
+    def next_frame(self, single_frame):
+        state = []
+        observations = []
+        for agent in self.agents:
+            observations.append(self.frame_buffers[agent].next_frame(single_frame[agent]))
+            state.append(single_frame[agent])
+        return np.array(state), np.array(observations)
         
     
 class ReplayBuffer():

@@ -46,8 +46,6 @@ class QMIX():
         for key in info.keys():
             self.logger.add_scalar('Train/'+key, info[key], step)
         self.infos.append(info)
-        #self.logger.add_scalar('Train/Epsilon', self.runner.epsilon, step)
-        #self.logger.add_scalar('Train/Loss', loss, step)
         
 
     def learn(self, total_steps):
@@ -145,8 +143,9 @@ class QMIX():
         self.policy.load_state_dict(torch.load(path))
 
 class QMIX_ECE(QMIX):
-    def __init__(self, env:BaseMPE, config):
-        super.__init__(env, config)
-        self.runner = ECERunner(self.env, self.policy, self.memory)
+    def __init__(self, env:BaseMPE, config, ga_config):
+        super().__init__(env, config)
+        self.runner = ECERunner(self.env, self.policy, self.target_policy, self.mixer, self.target_mixer,\
+                                self.memory, self.config['eps_start'], self.config['eps_end'], self.config['eps_dec'], ga_config)
 
     
