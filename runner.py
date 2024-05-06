@@ -93,3 +93,18 @@ class ECERunner(EGreedyRunner):
             self.update_epsilon(step)
             
         return total_reward, step
+    
+class ECERunner_v2(EGreedyRunner):
+    def __init__(self, env, gamma, policy, target_policy, mixer, target_mixer, replay_buffer, eps_start, eps_end, eps_dec, ga_config):
+        super().__init__(env, policy, replay_buffer, eps_start, eps_end, eps_dec)
+        self.target_policy = target_policy
+        self.mixer = mixer
+        self.target_mixer = target_mixer
+        self.gamma = gamma
+        self.n_agents = self.env.n_agents
+        self.ga_config = ga_config
+
+    def seeding(self):
+        self.seed = random.randint(0, 2**31-1)
+
+    

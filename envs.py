@@ -35,9 +35,12 @@ class BaseMPE():
         reward = reward['agent_0']
         return global_state, observations, reward, terminations, truncations, infos
 
-    def reset(self):
+    def reset(self, seed=None):
         self.frame_buffer.clear()
-        single_frame_observatons, infos = self.env.reset()
+        if seed is not None:
+            single_frame_observatons, infos = self.env.reset(seed=seed)
+        else:    
+            single_frame_observatons, infos = self.env.reset()
         self.frame_buffer.push(single_frame_observatons)
         observatons = self.frame_buffer.get()
         return self.global_state(), observatons, infos

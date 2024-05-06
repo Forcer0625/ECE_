@@ -19,12 +19,12 @@ verify_ssl = true
 name = "downloadpytorch"
 
 [packages]
-pettingzoo = {extras = ["mpe"], version = "*"}
 torch = {version = "==2.0.1+cu117", index = "downloadpytorch"}
 torchvision = {version = "==0.15.2+cu117", index = "downloadpytorch"}
 torchaudio = {version = "==2.0.2+cu117", index = "downloadpytorch"}
 tdqm = "*"
 tensorboard = "*"
+pettingzoo = {extras = ["butterfly", "mpe"], version = "*"}
 
 [dev-packages]
 

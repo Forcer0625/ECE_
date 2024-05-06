@@ -79,6 +79,7 @@ class ReplayBuffer():
         self.dones  = np.zeros(self.max_buffer_size, dtype=bool)
 
     def store(self, state, observation, action, reward, done, state_, observation_):
+        store_index = self.index
         self.states [self.index] = state
         self.states_[self.index] = state_
         self.observations [self.index] = observation
@@ -89,6 +90,7 @@ class ReplayBuffer():
 
         self.index = (self.index+1)%self.max_buffer_size
         self.buffer_size = min(self.buffer_size+1, self.max_buffer_size)
+        return store_index
 
     def sample(self, batch_size):
         batch = np.random.choice(self.buffer_size, batch_size)
@@ -100,6 +102,17 @@ class ReplayBuffer():
         actions= self.actions[batch]
         rewards= self.rewards[batch]
         dones  = self.dones  [batch]
+
+        return states, observations, actions, rewards, dones, states_, observations_
+    
+    def last_episode(self, episode_idx):
+        states = self.states [episode_idx]
+        states_= self.states_[episode_idx]
+        observations = self.observations [episode_idx]
+        observations_= self.observations_[episode_idx] 
+        actions= self.actions[episode_idx]
+        rewards= self.rewards[episode_idx]
+        dones  = self.dones  [episode_idx]
 
         return states, observations, actions, rewards, dones, states_, observations_
     

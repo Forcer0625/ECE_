@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from modules import QMixer, MLPAgent
 from utilis import ReplayBuffer
-from runner import EGreedyRunner, ECERunner
+from runner import *
 from envs import BaseMPE
 from copy import deepcopy
 from torch.utils.tensorboard import SummaryWriter
@@ -147,5 +147,97 @@ class QMIX_ECE(QMIX):
         super().__init__(env, config)
         self.runner = ECERunner(self.env, self.policy, self.target_policy, self.mixer, self.target_mixer,\
                                 self.memory, self.config['eps_start'], self.config['eps_end'], self.config['eps_dec'], ga_config)
+        
+class QMIX_ECE_v2(QMIX):
+    def __init__(self, env: BaseMPE, config, ga_config):
+        super().__init__(env, config)
+        self.n_episode_length = config['episode_length']
+        self.ga_config = ga_config
 
-    
+    def learn(self, total_steps):
+        populations = []
+        for _ in range(self.ga_config['population_size']):
+            populations.append(Individual(self.n_agents, self.n_actions, self.n_episode_length))
+        
+        seed = self.seeding()
+        
+        # evaluate
+        for individual in populations:
+            fitness = self.evaluate(individual.actions)
+            individual.fitness = fitness
+
+        # RL side
+
+        # GA side
+                
+        
+    def seeding(self):
+        self.seed = random.randint(0, 2**31-1)
+
+    def caculate_td_error(self, episode_idx):
+        states, observations, actions, rewards,\
+            dones, states_, observations_ = self.memory.last_episode(episode_idx)
+
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        observations = torch.as_tensor(observations, dtype=torch.float32, device=self.device).view(-1, *observations[0][0].shape)
+        actions = torch.as_tensor(actions, dtype=torch.int64, device=self.device).view(-1, self.n_agents)
+        rewards = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
+        dones = torch.as_tensor(dones, dtype=torch.int, device=self.device)
+        states_= torch.as_tensor(states_, dtype=torch.float32, device=self.device)
+        observations_= torch.as_tensor(observations_, dtype=torch.float, device=self.device).view(-1, *observations_[0][0].shape)
+
+        action_values = self.policy(observations).reshape(-1, self.n_agents, self.n_actions)
+        action_values = action_values.gather(2, actions.unsqueeze(2))
+        action_values = action_values.reshape(-1, 1, self.n_agents)
+
+        # double-q
+        estimate_action_values = self.policy(observations_).reshape(-1, self.n_agents, self.n_actions)
+        next_action = torch.max(estimate_action_values, dim=2).indices
+        next_action_values = self.target_policy(observations_).reshape(-1, self.n_agents, self.n_actions)
+        next_action_values = next_action_values.gather(2, next_action.unsqueeze(2))
+        next_action_values = next_action_values.reshape(-1, 1, self.n_agents)
+
+        #mixer
+        q_tot = self.mixer(action_values, states).squeeze()
+        target_q_tot = self.target_mixer(next_action_values, states_).squeeze()
+
+        # calculate loss
+        target = rewards + self.gamma * (1 - dones) * target_q_tot
+        loss = torch.nn.MSELoss(q_tot, target)
+
+        return loss.item()
+
+    def evalute(self, all_actions):
+        state, obs, _ = self.env.reset(seed=self.seed)
+        truncation = termination = False
+        total_reward = step = 0
+        n_agents = self.env.n_agents
+        episode_idx = []
+
+        while (not truncation) and (not termination):
+            actions = all_actions[step*n_agents: step*n_agents+n_agents]
+            encoded_actions = []
+            for i in range(self.n_agents):
+                if i == -1:
+                    feature = torch.as_tensor(obs[i], dtype=torch.float, device=self.policy.device)
+                    action_values = self.policy(feature)
+                    a = torch.argmax(action_values)
+                else:
+                    a = actions[i]
+                encoded_actions.append(a)
+            
+            state_, obs_, reward, termination, truncation, _ = self.env.step(encoded_actions)
+
+            index = self.memory.store(state, obs, encoded_actions, reward, termination, state_, obs_)
+            episode_idx.append(index)
+
+            total_reward += reward
+
+            state = state_
+            obs = obs_
+
+            step += 1
+
+        mean_td_error = self.caculate_td_error(episode_idx)
+        epsilon = self.runner.epsilon
+        return epsilon*mean_td_error*step + (1-epsilon)*total_reward, step

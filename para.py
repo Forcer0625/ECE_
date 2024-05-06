@@ -1,11 +1,11 @@
-from pettingzoo.mpe import simple_spread_v3, simple_world_comm_v3
+from pettingzoo.mpe import simple_spread_v3, simple_world_comm_v3, simple_reference_v3
 import time
 from envs import Spread, Reference, Comm
 
-env = simple_world_comm_v3.parallel_env(render_mode='human')#Comm('human')#
+env = simple_reference_v3.parallel_env(render_mode='human')#Comm('human')#
 while True:
     t = time.time()
-    observations, infos = env.reset()
+    observations, infos = env.reset(seed=2)
     # truncations = terminations = False
     # while (not truncations) and (not terminations):
     #     actions = []

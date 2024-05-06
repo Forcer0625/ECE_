@@ -15,6 +15,7 @@ config = {
     'batch_size':256,
     'memory_size':1500000,
     'device':device,
+    'episode_length':ep_steps,
     'logdir':'ece_reference',
 }
 ga_config = {
