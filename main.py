@@ -19,7 +19,6 @@ config = {
     'logdir':'ece_reference',
 }
 ga_config = {
-    'total_generation':500,
     'population_size':200,
     'crossover_rate':0.9,
     'mutation_rate':0.1,

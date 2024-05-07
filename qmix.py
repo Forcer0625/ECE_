@@ -87,7 +87,7 @@ class QMIX():
         rewards = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
         dones = torch.as_tensor(dones, dtype=torch.int, device=self.device)
         states_= torch.as_tensor(states_, dtype=torch.float32, device=self.device)
-        observations_= torch.as_tensor(observations_, dtype=torch.float, device=self.device).view(-1, *observations_[0][0].shape)
+        observations_= torch.as_tensor(observations_, dtype=torch.float32, device=self.device).view(-1, *observations_[0][0].shape)
 
         action_values = self.policy(observations).reshape(-1, self.n_agents, self.n_actions)
         action_values = action_values.gather(2, actions.unsqueeze(2))
@@ -155,21 +155,50 @@ class QMIX_ECE_v2(QMIX):
         self.ga_config = ga_config
 
     def learn(self, total_steps):
+        step, generation = 0
         populations = []
         for _ in range(self.ga_config['population_size']):
             populations.append(Individual(self.n_agents, self.n_actions, self.n_episode_length))
         
-        seed = self.seeding()
-        
-        # evaluate
-        for individual in populations:
-            fitness = self.evaluate(individual.actions)
-            individual.fitness = fitness
+        while step < total_steps:
+            infos = []
+            self.seeding()
+            # evaluate
+            for individual in populations:
+                fitness, episode_steps, mean_td_error, total_reward = self.evaluate(individual.actions)
+                individual.fitness = fitness
+                step += episode_steps
 
-        # RL side
+                info = {
+                    'Fitness':fitness,
+                    'TD-Error':mean_td_error,
+                    'Ep.Reward':total_reward,
+                    'Epislon':self.runner.epsilon,
+                }
+                infos.append(info)
 
-        # GA side
-                
+            # RL side
+            for i in range(self.ga_config['population_size']):
+                loss = self.update()
+                self.sync()
+                infos[i]['Loss'] = loss
+            
+            # GA side
+            parents = None
+
+            offsprings = None # crossover
+            
+
+            offsprings =None # mutation
+            
+            populations = offsprings # (mu, lambda)
+            
+            # log
+            for i in range(self.ga_config['population_size']):
+                self.log_info(generation*self.ga_config['population_size'] + i, infos[i])
+            generation += 1
+
+        torch.save(self.infos, './log/'+self.config['logdir'])
         
     def seeding(self):
         self.seed = random.randint(0, 2**31-1)
@@ -203,11 +232,11 @@ class QMIX_ECE_v2(QMIX):
 
         # calculate loss
         target = rewards + self.gamma * (1 - dones) * target_q_tot
-        loss = torch.nn.MSELoss(q_tot, target)
+        loss = self.loss(q_tot, target)
 
         return loss.item()
 
-    def evalute(self, all_actions):
+    def evaluate(self, all_actions):
         state, obs, _ = self.env.reset(seed=self.seed)
         truncation = termination = False
         total_reward = step = 0
@@ -240,4 +269,4 @@ class QMIX_ECE_v2(QMIX):
 
         mean_td_error = self.caculate_td_error(episode_idx)
         epsilon = self.runner.epsilon
-        return epsilon*mean_td_error*step + (1-epsilon)*total_reward, step
+        return epsilon*mean_td_error*step + (1-epsilon)*total_reward, step, mean_td_error, total_reward
