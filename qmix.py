@@ -155,47 +155,50 @@ class QMIX_ECE_v2(QMIX):
         self.ga_config = ga_config
 
     def learn(self, total_steps):
-        step, generation = 0
+        step = generation = 0
         populations = []
-        for _ in range(self.ga_config['population_size']):
+        n_populations = self.ga_config['population_size']
+        for _ in range(n_populations):
             populations.append(Individual(self.n_agents, self.n_actions, self.n_episode_length))
         
         while step < total_steps:
             infos = []
             self.seeding()
             # evaluate
-            for individual in populations:
-                fitness, episode_steps, mean_td_error, total_reward = self.evaluate(individual.actions)
-                individual.fitness = fitness
-                step += episode_steps
+            with torch.no_grad():
+                for individual in populations:
+                    fitness, episode_steps, mean_td_error, total_reward = self.evaluate(individual.actions)
+                    individual.fitness = fitness
+                    #step += episode_steps
 
-                info = {
-                    'Fitness':fitness,
-                    'TD-Error':mean_td_error,
-                    'Ep.Reward':total_reward,
-                    'Epislon':self.runner.epsilon,
-                }
-                infos.append(info)
-
+                    info = {
+                        'Fitness':fitness,
+                        'TD-Error':mean_td_error*episode_steps,
+                        'Ep.Reward':total_reward,
+                        'Epislon':self.runner.epsilon,
+                    }
+                    infos.append(info)
+            step += episode_steps*n_populations
+            
             # RL side
-            for i in range(self.ga_config['population_size']):
+            for i in range(n_populations):
                 loss = self.update()
                 self.sync()
                 infos[i]['Loss'] = loss
-            
+                self.log_info(generation*n_populations + i, infos[i])
+
             # GA side
+            populations.sort(key=lambda individual: individual.fitness, reverse=True)
+            populations = populations[:n_populations]
+            
             parents = None
 
-            offsprings = None # crossover
+            offsprings = [] # crossover
             
+            offsprings = [] # mutation
+            
+            populations = populations + offsprings # (mu+lambda)
 
-            offsprings =None # mutation
-            
-            populations = offsprings # (mu, lambda)
-            
-            # log
-            for i in range(self.ga_config['population_size']):
-                self.log_info(generation*self.ga_config['population_size'] + i, infos[i])
             generation += 1
 
         torch.save(self.infos, './log/'+self.config['logdir'])
@@ -247,10 +250,10 @@ class QMIX_ECE_v2(QMIX):
             actions = all_actions[step*n_agents: step*n_agents+n_agents]
             encoded_actions = []
             for i in range(self.n_agents):
-                if i == -1:
+                if actions[i] == -1:
                     feature = torch.as_tensor(obs[i], dtype=torch.float, device=self.policy.device)
                     action_values = self.policy(feature)
-                    a = torch.argmax(action_values)
+                    a = torch.argmax(action_values).cpu().item()
                 else:
                     a = actions[i]
                 encoded_actions.append(a)

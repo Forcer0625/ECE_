@@ -1,4 +1,4 @@
-from qmix import QMIX_ECE
+from qmix import *
 import torch
 from envs import *
 
@@ -13,7 +13,7 @@ config = {
     'lr': 1e-4,
     'tau':0.005, # more is harder
     'batch_size':256,
-    'memory_size':1500000,
+    'memory_size':150,
     'device':device,
     'episode_length':ep_steps,
     'logdir':'ece_reference',
@@ -27,7 +27,7 @@ ga_config = {
 if __name__ == '__main__':
     print(device)
     env = Reference()
-    qmix = QMIX_ECE(env, config, ga_config)
+    qmix = QMIX_ECE_v2(env, config, ga_config)
     qmix.learn(total_steps)
     
     #qmix.save_model()
