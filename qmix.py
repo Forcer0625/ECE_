@@ -175,7 +175,7 @@ class QMIX_ECE_v2(QMIX):
 
                     info = {
                         'Fitness':fitness,
-                        'TD-Error':mean_td_error*episode_steps,
+                        'TD-Error':mean_td_error,
                         'Ep.Reward':total_reward,
                         'Epislon':self.runner.epsilon,
                     }
@@ -202,6 +202,8 @@ class QMIX_ECE_v2(QMIX):
             populations = populations + offsprings # (mu+lambda)
 
             generation += 1
+
+            print('Steps: %d\tEpsilon:%.2f\tEp.Reward: %.2f\tFitness: %.2f\tTD-Error: %.2f' % (step, self.runner.epsilon, total_reward, info['Fitness'], info['TD-Error']))
 
         torch.save(self.infos, './log/'+self.config['logdir'])
         
