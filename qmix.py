@@ -159,7 +159,9 @@ class QMIX_ECE_v2(QMIX):
         populations = []
         n_populations = self.ga_config['population_size']
         for _ in range(n_populations):
-            populations.append(Individual(self.n_agents, self.n_actions, self.n_episode_length))
+            individual = Individual()
+            individual.set_actions(None, self.n_agents, self.n_actions, self.n_episode_length)
+            populations.append(individual)
         
         while step < total_steps:
             infos = []
@@ -191,11 +193,11 @@ class QMIX_ECE_v2(QMIX):
             populations.sort(key=lambda individual: individual.fitness, reverse=True)
             populations = populations[:n_populations]
             
-            parents = None
+            parents_idx = SGA.parent_select(populations, k=10)
 
-            offsprings = [] # crossover
+            offsprings = SGA.crossover(populations, parents_idx, self.ga_config['crossover_rate'])
             
-            offsprings = [] # mutation
+            SGA.mutation(populations, self.ga_config['mutation_rate'], low=-1, high=self.n_actions)
             
             populations = populations + offsprings # (mu+lambda)
 
